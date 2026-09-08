@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EcoUV & Thermal Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+  </head>
+  <body class="bg-slate-900 text-slate-100 min-h-screen p-4 md:p-8 font-sans">
+    <div class="max-w-4xl mx-auto space-y-6">
+      <!-- HEADER & PENCARIAN -->
+      <header
+        class="flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg"
+      >
+        <div>
+          <h1 class="text-2xl font-bold text-amber-400 flex items-center gap-2">
+            <i data-lucide="sun"></i> EcoUV & Thermal Dashboard
+          </h1>
+          <p class="text-sm text-slate-400 mt-1">
+            Pemantauan Radiasi UV & Stres Termal Real-Time
+          </p>
+        </div>
+
+        <div class="flex gap-2 w-full md:w-auto">
+          <input
+            type="text"
+            id="cityInput"
+            placeholder="Masukkan Nama Kota (mis: Palu)"
+            value="Palu"
+            class="bg-slate-900 text-slate-200 px-4 py-2 rounded-xl border border-slate-700 focus:outline-none focus:border-amber-400 w-full"
+          />
+          <button
+            onclick="fetchWeatherData()"
+            class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold px-4 py-2 rounded-xl transition flex items-center gap-2"
+          >
+            <i data-lucide="search" class="w-4 h-4"></i> Cari
+          </button>
+        </div>
+      </header>
+
+      <!-- STATUS LOKASI -->
+      <div
+        class="flex justify-between items-center text-sm text-slate-400 px-2"
+      >
+        <span
+          id="locationName"
+          class="flex items-center gap-1 font-medium text-slate-300"
+        >
+          <i data-lucide="map-pin" class="w-4 h-4 text-amber-400"></i> Memuat
+          lokasi...
+        </span>
+        <span id="timestamp">--:--</span>
+      </div>
+
+      <!-- BANNER PERINGATAN -->
+      <div
+        id="alertBanner"
+        class="hidden p-4 rounded-xl border flex items-center gap-3"
+      >
+        <i
+          id="alertIcon"
+          data-lucide="alert-triangle"
+          class="w-6 h-6 flex-shrink-0"
+        ></i>
+        <div>
+          <h4 id="alertTitle" class="font-bold text-sm">
+            Peringatan Lingkungan
+          </h4>
+          <p id="alertMessage" class="text-xs text-slate-300">
+            Detail peringatan...
+          </p>
+        </div>
+      </div>
+
+      <!-- GRID METRIK UTAMA -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Card 1: Radiasi UV -->
+        <div
+          class="bg-slate-800 p-6 rounded-2xl border border-slate-700 relative overflow-hidden"
+        >
+          <div class="flex justify-between items-center text-slate-400 mb-4">
+            <span class="text-xs uppercase font-bold tracking-wider"
+              >Indeks Radiasi UV</span
+            >
+            <i data-lucide="sun-medium" class="w-5 h-5 text-amber-400"></i>
+          </div>
+          <div class="flex items-baseline gap-2">
+            <span id="uvValue" class="text-5xl font-black">--</span>
+            <span
+              id="uvBadge"
+              class="text-xs px-2.5 py-1 rounded-full font-bold bg-slate-700"
+              >--</span
+            >
+          </div>
+          <p class="text-xs text-slate-400 mt-4">
+            Kategori WHO:
+            <span id="uvCategoryText" class="text-slate-200">--</span>
+          </p>
+        </div>
+
+        <!-- Card 2: Suhu Udara -->
+        <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700">
+          <div class="flex justify-between items-center text-slate-400 mb-4">
+            <span class="text-xs uppercase font-bold tracking-wider"
+              >Suhu Udara</span
+            >
+            <i data-lucide="thermometer" class="w-5 h-5 text-rose-400"></i>
+          </div>
+          <div class="flex items-baseline">
+            <span id="tempValue" class="text-5xl font-black">--</span>
+            <span class="text-2xl font-bold text-slate-400 ml-1">°C</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-4">
+            Kelembapan:
+            <span id="humidityValue" class="text-slate-200">--%</span>
+          </p>
+        </div>
+
+        <!-- Card 3: Heat Index -->
+        <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700">
+          <div class="flex justify-between items-center text-slate-400 mb-4">
+            <span class="text-xs uppercase font-bold tracking-wider"
+              >Heat Index (Terasa)</span
+            >
+            <i data-lucide="flame" class="w-5 h-5 text-orange-400"></i>
+          </div>
+          <div class="flex items-baseline">
+            <span id="heatIndexValue" class="text-5xl font-black">--</span>
+            <span class="text-2xl font-bold text-slate-400 ml-1">°C</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-4">
+            Risiko Stres Panas:
+            <span id="heatRiskText" class="text-slate-200">--</span>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      lucide.createIcons();
+
+      async function fetchWeatherData() {
+        const city = document.getElementById("cityInput").value || "Palu";
+        try {
+          const response = await fetch(
+            `http://localhost:5000/api/v1/weather/live?city=${encodeURIComponent(city)}`,
+          );
+          const json = await response.json();
+
+          if (json.status === "success") {
+            updateUI(json.data);
+          } else {
+            alert("Gagal mengambil data: " + json.message);
+          }
+        } catch (err) {
+          console.error("Fetch error:", err);
+          alert(
+            "Tidak dapat terhubung ke Backend. Pastikan `node server.js` masih berjalan.",
+          );
+        }
+      }
+
+      function updateUI(data) {
+        document.getElementById("locationName").innerHTML =
+          `<i data-lucide="map-pin" class="w-4 h-4 text-amber-400"></i> ${data.location.name}, ${data.location.region} (${data.location.country})`;
+        document.getElementById("timestamp").innerText =
+          `Diperbarui: ${data.location.timestamp}`;
+
+        const uv = data.metrics.uv_index;
+        document.getElementById("uvValue").innerText = uv;
+        document.getElementById("uvCategoryText").innerText =
+          data.metrics.uv_category;
+
+        const uvBadge = document.getElementById("uvBadge");
+        uvBadge.innerText = data.metrics.uv_category;
+
+        if (uv <= 2)
+          uvBadge.className =
+            "text-xs px-2.5 py-1 rounded-full font-bold bg-green-500/20 text-green-400 border border-green-500/30";
+        else if (uv <= 5)
+          uvBadge.className =
+            "text-xs px-2.5 py-1 rounded-full font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30";
+        else if (uv <= 7)
+          uvBadge.className =
+            "text-xs px-2.5 py-1 rounded-full font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30";
+        else if (uv <= 10)
+          uvBadge.className =
+            "text-xs px-2.5 py-1 rounded-full font-bold bg-red-500/20 text-red-400 border border-red-500/30";
+        else
+          uvBadge.className =
+            "text-xs px-2.5 py-1 rounded-full font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30";
+
+        document.getElementById("tempValue").innerText =
+          data.metrics.temperature_c;
+        document.getElementById("humidityValue").innerText =
+          `${data.metrics.humidity_pct}%`;
+
+        const heatIndex = data.metrics.heat_index_c;
+        document.getElementById("heatIndexValue").innerText = heatIndex;
+
+        const heatRiskText = document.getElementById("heatRiskText");
+        if (heatIndex >= 41) heatRiskText.innerText = "Sangat Berbahaya";
+        else if (heatIndex >= 32) heatRiskText.innerText = "Waspada Tinggi";
+        else heatRiskText.innerText = "Normal / Aman";
+
+        const alertBanner = document.getElementById("alertBanner");
+        const alertMessage = document.getElementById("alertMessage");
+
+        if (data.advisory.needs_alert) {
+          alertBanner.classList.remove("hidden");
+          alertBanner.className =
+            "p-4 rounded-xl border flex items-center gap-3 bg-red-950/50 border-red-700 text-red-200";
+          alertMessage.innerText = data.advisory.warning_message;
+        } else {
+          alertBanner.classList.remove("hidden");
+          alertBanner.className =
+            "p-4 rounded-xl border flex items-center gap-3 bg-slate-800 border-slate-700 text-slate-300";
+          alertMessage.innerText = data.advisory.warning_message;
+        }
+
+        lucide.createIcons();
+      }
+
+      window.onload = fetchWeatherData;
+    </script>
+  </body>
+</html>
