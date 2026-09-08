@@ -226,3 +226,9 @@
     </script>
   </body>
 </html>
+ // --- Open-Meteo API ---
+    async function fetchWeatherData(lat, lon) {
+        document.getElementById('coordsInfo').innerText = `Lat: ${parseFloat(lat).toFixed(4)}, Lon: ${parseFloat(lon).toFixed(4)}`;
+        
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,uv_index&hourly=uv_index&timezone=auto`;
+
